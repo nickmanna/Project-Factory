@@ -67,11 +67,11 @@ jobs:
         uses: google-github-actions/get-secretmanager-secrets@v2
         with:
           secrets: |-
-            MACOS_SIGNING_CERT:projectfactory-macos-signing-cert
-            MACOS_SIGNING_CERT_PASSWORD:projectfactory-macos-signing-cert-password
-            NOTARIZATION_APPLE_ID:projectfactory-notarization-apple-id
-            NOTARIZATION_APP_PASSWORD:projectfactory-notarization-app-password
-            SPARKLE_PRIVATE_KEY:projectfactory-sparkle-private-key
+            MACOS_SIGNING_CERT:nickm-project-factory/projectfactory-macos-signing-cert
+            MACOS_SIGNING_CERT_PASSWORD:nickm-project-factory/projectfactory-macos-signing-cert-password
+            NOTARIZATION_APPLE_ID:nickm-project-factory/projectfactory-notarization-apple-id
+            NOTARIZATION_APP_PASSWORD:nickm-project-factory/projectfactory-notarization-app-password
+            SPARKLE_PRIVATE_KEY:nickm-project-factory/projectfactory-sparkle-private-key
 
       - name: Import signing certificate into an ephemeral keychain
         env:
