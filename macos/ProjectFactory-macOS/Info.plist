@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSAppTransportSecurity</key>
@@ -45,5 +45,13 @@
 	<true/>
 	<key>RCTNewArchEnabled</key>
 	<true/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/nickmanna/Project-Factory/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>M4f7yJsaS6PO7AnduQE53SItClecNH1UJs7nHIUBORw=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

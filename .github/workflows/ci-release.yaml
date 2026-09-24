@@ -1,0 +1,192 @@
+name: Build & Release macOS (Production)
+
+# Builds a signed, notarized Release .app pointed at PROD config and
+# publishes it as a GitHub Release. Trigged by pushing a version tag,
+# so promotion from develop -> main doesn't itself ship a release --
+# tagging main does. Keeps "merged to main" and "released to users" seperate.
+#
+# Also updates appcast.xml on main so that existing installs (via Sparkle)
+# pick up the new version automatically.
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g. 1.2.3) - only needed for manual runs"
+        required: false
+
+permissions:
+  contents: write
+  id-token: write
+
+env:
+  DEVELOPMENT_TEAM: 37ZH4CY85H
+
+jobs:
+  build-macos-prod:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "zip_name=ProjectFactory-$VERSION.zip" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Install Ruby dependencies
+        run: bundle install
+
+      - name: Install CocoaPods dependencies
+        working-directory: macos
+        run: bundle exec pod install
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_CI_SERVICE_ACCOUNT }}
+
+      - name: Fetch prod secrets from Secret Manager
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            MACOS_SIGNING_CERT:projectfactory-macos-signing-cert
+            MACOS_SIGNING_CERT_PASSWORD:projectfactory-macos-signing-cert-password
+            NOTARIZATION_APPLE_ID:projectfactory-notarization-apple-id
+            NOTARIZATION_APP_PASSWORD:projectfactory-notarization-app-password
+            SPARKLE_PRIVATE_KEY:projectfactory-sparkle-private-key
+
+      - name: Import signing certificate into an ephemeral keychain
+        env:
+          MACOS_CERTIFICATE: ${{ steps.secrets.outputs.MACOS_SIGNING_CERT }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ steps.secrets.outputs.MACOS_SIGNING_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN_PATH" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | sed 's/"//g')
+
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Build signed Release .app
+        working-directory: macos
+        run: |
+          xcodebuild \
+            -workspace ProjectFactory.xcworkspace \
+            -scheme ProjectFactory-macOS \
+            -configuration Release \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
+            build
+
+      - name: Notarize the app
+        env:
+          NOTARIZATION_APPLE_ID: ${{ steps.secrets.outputs.NOTARIZATION_APPLE_ID }}
+          NOTARIZATION_APP_PASSWORD: ${{ steps.secrets.outputs.NOTARIZATION_APP_PASSWORD }}
+        run: |
+          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/ProjectFactory.app"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+          ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/notarize-submission.zip"
+
+          xcrun notarytool submit "$RUNNER_TEMP/notarize-submission.zip" \
+            --apple-id "$NOTARIZATION_APPLE_ID" \
+            --team-id "$DEVELOPMENT_TEAM" \
+            --password "$NOTARIZATION_APP_PASSWORD" \
+            --wait
+
+          xcrun stapler staple "$APP_PATH"
+          spctl -a -vv --type execute "$APP_PATH"
+
+      - name: Package release archive
+        id: package
+        run: |
+          ZIP_PATH="$RUNNER_TEMP/${{ steps.version.outputs.zip_name }}"
+          ditto -c -k --keepParent "$APP_PATH" "$ZIP_PATH"
+          echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "zip_length=$(stat -f%z "$ZIP_PATH")" >> "$GITHUB_OUTPUT"
+
+      - name: Sign release archive for Sparkle
+        id: sparkle_sign
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ steps.secrets.outputs.SPARKLE_PRIVATE_KEY }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/sparkle_private_key.txt"
+          echo -n "$SPARKLE_PRIVATE_KEY" > "$KEY_PATH"
+
+          SIGN_OUTPUT="$(macos/Pods/Sparkle/bin/sign_update "${{ steps.package.outputs.zip_path }}" -f "$KEY_PATH")"
+          SIGNATURE="$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"$//')"
+          echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"
+
+          rm -f "$KEY_PATH"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            "${{ steps.package.outputs.zip_path }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --generate-notes
+
+      - name: Update appcast.xml on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch origin main
+          git checkout main
+
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/${{ steps.version.outputs.zip_name }}"
+          RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
+
+          python3 scripts/update_appcast.py \
+            --appcast appcast.xml \
+            --version "${{ steps.version.outputs.version }}" \
+            --build "${{ steps.version.outputs.build }}" \
+            --url "$DOWNLOAD_URL" \
+            --length "${{ steps.package.outputs.zip_length }}" \
+            --signature "${{ steps.sparkle_sign.outputs.signature }}" \
+            --release-notes-url "$RELEASE_NOTES_URL"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "Update appcast for v${{ steps.version.outputs.version }}"
+          git push origin main
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          if [ -n "$KEYCHAIN_PATH" ] && [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi

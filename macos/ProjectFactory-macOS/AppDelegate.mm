@@ -2,6 +2,11 @@
 
 #import <React/RCTBundleURLProvider.h>
 #import <ReactAppDependencyProvider/RCTAppDependencyProvider.h>
+#import <Sparkle/Sparkle.h>
+
+@interface AppDelegate ()
+@property (nonatomic, strong) SPUStandardUpdaterController *updaterController;
+@end
 
 @implementation AppDelegate
 
@@ -12,8 +17,30 @@
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
   self.dependencyProvider = [RCTAppDependencyProvider new];
-  
+
+  self.updaterController = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:YES
+                                                                          updaterDelegate:nil
+                                                                       userDriverDelegate:nil];
+  [self installCheckForUpdatesMenuItem];
+
   return [super applicationDidFinishLaunching:notification];
+}
+
+// Sparkle's Info.plist keys drive silent background checks; this menu item is
+// the standard manual trigger users expect to find in the app menu.
+- (void)installCheckForUpdatesMenuItem
+{
+  NSMenu *appMenu = [[[NSApp mainMenu] itemAtIndex:0] submenu];
+  NSString *aboutTitle = [NSString stringWithFormat:@"About %@", NSProcessInfo.processInfo.processName];
+  NSInteger aboutIndex = [appMenu indexOfItemWithTitle:aboutTitle];
+  NSInteger insertIndex = (aboutIndex == -1) ? 0 : aboutIndex + 1;
+
+  NSMenuItem *checkForUpdatesItem = [[NSMenuItem alloc] initWithTitle:@"Check for Updates…"
+                                                                action:@selector(checkForUpdates:)
+                                                         keyEquivalent:@""];
+  checkForUpdatesItem.target = self.updaterController;
+  [appMenu insertItem:checkForUpdatesItem atIndex:insertIndex];
+  [appMenu insertItem:[NSMenuItem separatorItem] atIndex:insertIndex + 1];
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
