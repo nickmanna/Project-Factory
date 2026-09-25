@@ -105,6 +105,7 @@ jobs:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp" \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
             build
@@ -119,11 +120,27 @@ jobs:
 
           ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/notarize-submission.zip"
 
+          SUBMIT_OUTPUT="$RUNNER_TEMP/notarize-submit.json"
           xcrun notarytool submit "$RUNNER_TEMP/notarize-submission.zip" \
             --apple-id "$NOTARIZATION_APPLE_ID" \
             --team-id "$DEVELOPMENT_TEAM" \
             --password "$NOTARIZATION_APP_PASSWORD" \
-            --wait
+            --wait \
+            --output-format json | tee "$SUBMIT_OUTPUT"
+
+          SUBMISSION_ID="$(plutil -extract id raw "$SUBMIT_OUTPUT")"
+          STATUS="$(plutil -extract status raw "$SUBMIT_OUTPUT")"
+
+          echo "--- Notary log for $SUBMISSION_ID ---"
+          xcrun notarytool log "$SUBMISSION_ID" \
+            --apple-id "$NOTARIZATION_APPLE_ID" \
+            --team-id "$DEVELOPMENT_TEAM" \
+            --password "$NOTARIZATION_APP_PASSWORD"
+
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "Notarization did not succeed (status: $STATUS) - see log above."
+            exit 1
+          fi
 
           xcrun stapler staple "$APP_PATH"
           spctl -a -vv --type execute "$APP_PATH"
