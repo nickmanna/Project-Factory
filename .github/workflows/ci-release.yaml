@@ -93,29 +93,35 @@ jobs:
 
           rm -f "$RUNNER_TEMP/cert.p12"
 
-      - name: Build signed Release .app
+      - name: Archive signed Release build
         working-directory: macos
         run: |
-          xcodebuild \
+          xcodebuild archive \
             -workspace ProjectFactory.xcworkspace \
             -scheme ProjectFactory-macOS \
             -configuration Release \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -archivePath "$RUNNER_TEMP/ProjectFactory.xcarchive" \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
             ENABLE_HARDENED_RUNTIME=YES \
-            OTHER_CODE_SIGN_FLAGS="--timestamp" \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
-            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
-            build
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}"
+
+      - name: Export Developer ID build
+        working-directory: macos
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/ProjectFactory.xcarchive" \
+            -exportPath "$RUNNER_TEMP/Export" \
+            -exportOptionsPlist ExportOptions.plist
 
       - name: Notarize the app
         env:
           NOTARIZATION_APPLE_ID: ${{ steps.secrets.outputs.NOTARIZATION_APPLE_ID }}
           NOTARIZATION_APP_PASSWORD: ${{ steps.secrets.outputs.NOTARIZATION_APP_PASSWORD }}
         run: |
-          APP_PATH="$RUNNER_TEMP/DerivedData/Build/Products/Release/ProjectFactory.app"
+          APP_PATH="$RUNNER_TEMP/Export/ProjectFactory.app"
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
           ditto -c -k --keepParent "$APP_PATH" "$RUNNER_TEMP/notarize-submission.zip"
