@@ -1,0 +1,173 @@
+:root {
+  color-scheme: light dark;
+  --bg: #1e1e1e;
+  --bg-elevated: #2a2a2a;
+  --border: #3a3a3a;
+  --text: #e6e6e6;
+  --text-dim: #9a9a9a;
+  --accent: #4f8cff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+
+.tab {
+  -webkit-app-region: no-drag;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab:hover:not(:disabled) {
+  background: var(--bg-elevated);
+}
+
+.tab--active {
+  background: var(--accent);
+  color: white;
+}
+
+.tab:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+main {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+
+.project-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.project-card {
+  text-align: left;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.project-card:hover {
+  border-color: var(--accent);
+}
+
+.project-card--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.project-card h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+
+.project-card p {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.resource-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.resource-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.history-tree h3 {
+  margin-top: 0;
+  font-size: 14px;
+}
+
+.history-tree ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 2px solid var(--border);
+}
+
+.commit-node {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0 8px 16px;
+  position: relative;
+}
+
+.commit-dot {
+  position: absolute;
+  left: -6px;
+  top: 14px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.commit-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.commit-hash {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.commit-message {
+  font-size: 13px;
+}
+
+.commit-meta {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.empty-state {
+  color: var(--text-dim);
+  font-size: 13px;
+}
