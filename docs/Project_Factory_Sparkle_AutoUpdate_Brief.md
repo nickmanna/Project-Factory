@@ -12,10 +12,12 @@ standard "an update is available, install it?" prompt.
   launch. If it lists a version newer than the running one, Sparkle shows the
   standard update dialog; the user clicks install, Sparkle downloads and
   swaps in the new build. This is "check + prompt," not silent/automatic.
-- The appcast is a plain file, `appcast.xml`, committed at the repo root on
+- The appcast is a plain file, `ProjectFactory/appcast.xml`, committed on
   `main` and served via
-  `https://raw.githubusercontent.com/nickmanna/Project-Factory/main/appcast.xml`.
+  `https://raw.githubusercontent.com/nickmanna/Project-Factory/main/ProjectFactory/appcast.xml`.
   No extra hosting (no GitHub Pages, no server) — CI just commits to it.
+  (Path updated when the repo was restructured to include `terraform/`/`docs/`
+  at the root — see `Project_Factory_CI_Workflows.md`'s repo structure note.)
 - Each release's actual `.app` (zipped) is uploaded as a **GitHub Release**
   asset; the appcast entry points at that release's download URL.
 - Update authenticity is verified with a **separate EdDSA keypair** (not your

@@ -1,8 +1,18 @@
 # CI Workflows
 
-Two workflows live in `ProjectFactory/.github/workflows/`. They're
-deliberately split by cost: one runs on every push and stays fast, the other
-runs rarely and does the expensive, real work of shipping a signed build.
+Two workflows live in `.github/workflows/` at the repo root (the repo root
+is `nickm-project-factory/`, not `ProjectFactory/` — see the note on repo
+structure below). They're deliberately split by cost: one runs on every
+push and stays fast, the other runs rarely and does the expensive, real
+work of shipping a signed build.
+
+**Repo structure note:** the app itself lives nested under `ProjectFactory/`
+(so, e.g., `ProjectFactory/macos/`, `ProjectFactory/package.json`), while
+`terraform/`, `docs/`, and `assets/` sit as siblings at the repo root
+alongside it. Every path in both workflow files below is repo-root-relative,
+which is why steps operating on the app explicitly set
+`working-directory: ProjectFactory` (or `ProjectFactory/macos`) rather than
+relying on it being the default.
 
 | | `ci-develop.yaml` | `ci-release.yaml` |
 |---|---|---|

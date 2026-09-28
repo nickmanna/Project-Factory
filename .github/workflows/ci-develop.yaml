@@ -25,14 +25,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: ProjectFactory/package-lock.json
 
       - name: Install JS dependencies
+        working-directory: ProjectFactory
         run: npm ci
 
       - name: Lint
+        working-directory: ProjectFactory
         run: npm run lint
 
       - name: Test
+        working-directory: ProjectFactory
         run: npm test -- --ci
 
   build-check:
@@ -44,19 +48,22 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: ProjectFactory/package-lock.json
 
       - name: Install JS dependencies
+        working-directory: ProjectFactory
         run: npm ci
 
       - name: Install Ruby dependencies
+        working-directory: ProjectFactory
         run: bundle install
 
       - name: Install CocoaPods dependencies
-        working-directory: macos
+        working-directory: ProjectFactory/macos
         run: bundle exec pod install
 
       - name: Debug build (unsigned compile check)
-        working-directory: macos
+        working-directory: ProjectFactory/macos
         run: |
           xcodebuild \
             -workspace ProjectFactory.xcworkspace \
