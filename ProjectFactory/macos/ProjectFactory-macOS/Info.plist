@@ -48,7 +48,7 @@
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/nickmanna/Project-Factory/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/nickmanna/Project-Factory/main/ProjectFactory/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>M4f7yJsaS6PO7AnduQE53SItClecNH1UJs7nHIUBORw=</string>
 	<key>SUEnableAutomaticChecks</key>

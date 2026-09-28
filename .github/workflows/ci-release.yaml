@@ -45,15 +45,18 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: ProjectFactory/package-lock.json
 
       - name: Install JS dependencies
+        working-directory: ProjectFactory
         run: npm ci
 
       - name: Install Ruby dependencies
+        working-directory: ProjectFactory
         run: bundle install
 
       - name: Install CocoaPods dependencies
-        working-directory: macos
+        working-directory: ProjectFactory/macos
         run: bundle exec pod install
 
       - name: Authenticate to GCP
@@ -94,7 +97,7 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
 
       - name: Archive signed Release build
-        working-directory: macos
+        working-directory: ProjectFactory/macos
         run: |
           xcodebuild archive \
             -workspace ProjectFactory.xcworkspace \
@@ -109,7 +112,7 @@ jobs:
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}"
 
       - name: Export Developer ID build
-        working-directory: macos
+        working-directory: ProjectFactory/macos
         run: |
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/ProjectFactory.xcarchive" \
@@ -167,7 +170,7 @@ jobs:
           KEY_PATH="$RUNNER_TEMP/sparkle_private_key.txt"
           echo -n "$SPARKLE_PRIVATE_KEY" > "$KEY_PATH"
 
-          SIGN_OUTPUT="$(macos/Pods/Sparkle/bin/sign_update "${{ steps.package.outputs.zip_path }}" -f "$KEY_PATH")"
+          SIGN_OUTPUT="$(ProjectFactory/macos/Pods/Sparkle/bin/sign_update "${{ steps.package.outputs.zip_path }}" -f "$KEY_PATH")"
           SIGNATURE="$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | sed 's/sparkle:edSignature="//;s/"$//')"
           echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"
 
@@ -192,8 +195,8 @@ jobs:
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/${{ steps.version.outputs.zip_name }}"
           RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }}"
 
-          python3 scripts/update_appcast.py \
-            --appcast appcast.xml \
+          python3 ProjectFactory/scripts/update_appcast.py \
+            --appcast ProjectFactory/appcast.xml \
             --version "${{ steps.version.outputs.version }}" \
             --build "${{ steps.version.outputs.build }}" \
             --url "$DOWNLOAD_URL" \
@@ -203,7 +206,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add appcast.xml
+          git add ProjectFactory/appcast.xml
           git commit -m "Update appcast for v${{ steps.version.outputs.version }}"
           git push origin main
 
