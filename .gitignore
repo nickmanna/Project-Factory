@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Terraform - state lives in the GCS backend (see terraform/versions.tf),
+# never commit local state or the provider plugin cache.
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfplan
+
+# Contains real account IDs - see terraform/terraform.tfvars.example
+terraform/terraform.tfvars

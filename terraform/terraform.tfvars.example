@@ -1,0 +1,4 @@
+project_id = "your-gcp-project-id"
+billing_account = "XXXXXX-XXXXXX-XXXXXX"
+github_org = "your-github-org"
+github_repo = "your-github-repo"
