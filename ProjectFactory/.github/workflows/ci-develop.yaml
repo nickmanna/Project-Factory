@@ -1,0 +1,66 @@
+name: Develop CI (Lint, Test, Build Check)
+
+# Fast feedback for regular development work: lint, unit tests, and an
+# unsigned Debug compile check. No GCP auth, no codesigning, no
+# notarization - none of that is needed just to prove the code is sound,
+# and skipping it is what keeps this fast (minutes, not the ~10-20 the
+# release workflow takes waiting on Apple's notary service).
+#
+# This intentionally does NOT build a distributable artifact. That's
+# ci-release.yaml's job, triggered by a version tag.
+
+on:
+  push:
+    branches: ["develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  lint-and-test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --ci
+
+  build-check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Install Ruby dependencies
+        run: bundle install
+
+      - name: Install CocoaPods dependencies
+        working-directory: macos
+        run: bundle exec pod install
+
+      - name: Debug build (unsigned compile check)
+        working-directory: macos
+        run: |
+          xcodebuild \
+            -workspace ProjectFactory.xcworkspace \
+            -scheme ProjectFactory-macOS \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build
