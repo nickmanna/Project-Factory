@@ -29,10 +29,13 @@ React + TypeScript app.
 independently installable/buildable/lintable. Structure:
 
 - `src/types.ts` — `Project`, `Resource`, `Commit` types.
-- `src/mockData.ts` — placeholder data (including Project Factory's own
-  repo/CI/secrets as one of the mock projects, for a realistic first look).
-  **Real data (reading actual git repos, GCP/GitHub APIs) isn't wired up
-  yet** — that's the next piece of work, not this one.
+- `src/mockData.ts` — `mockCommits` only now. Project data is real
+  (Firestore); commit history is still placeholder — see "Project data:
+  Firestore" below for why those are on different timelines.
+- `src/firebaseConfig.ts`, `src/firebase.ts` — Firestore client config
+  (committed, non-secret by design) and initialization.
+- `src/hooks/useProjects.ts` — fetches the `projects` collection on mount;
+  returns `{ projects, loading, error }`.
 - `src/components/ProjectMap.tsx` — v0 project map: a card grid, one card
   per project, resources shown as chips. This is the seam where a real
   graph library (React Flow) would go once there's an actual reason to
@@ -48,6 +51,83 @@ independently installable/buildable/lintable. Structure:
 **Root app (`App.tsx`)** — replaced the default RN template screen with a
 `WebView` pointing at the dashboard's dev server in development.
 
+## Project data: Firestore
+
+The `projects` collection (database provisioned in `terraform/firestore.tf`,
+previously empty/unused) is now the project map's real data source.
+
+**Schema** — top-level `projects` collection, document ID = the project's
+own `id`:
+```
+projects/{projectId}
+  name: string
+  description: string
+  resources: array<map>
+    - id: string
+    - name: string
+    - kind: string   // ResourceKind: "repo" | "gcp-project" | "secret"
+                      // | "ci-workflow" | "deploy-target"
+```
+Resources are an **embedded array**, not a subcollection — resource lists
+are small (a handful of chips per project) and nothing queries them
+independently of their project, so a subcollection would roughly double the
+code for no present benefit.
+
+**Security rules** — open (`allow read, write: if true;`,
+`firebase/firestore.rules`). Deliberate: this is a single-user local
+desktop app, and the data here (project names, repo URLs, resource labels)
+isn't sensitive — actual secrets stay exclusively in GCP Secret Manager, as
+they already do today. Revisit if this ever becomes multi-user.
+
+**Why the API key and rules aren't Terraform-managed**: `apikeys.googleapis.com`
+rejects the plain user credentials Terraform runs with locally in this repo
+(no apply-via-CI here), requiring service-account impersonation — real
+complexity for a key created once and never rotated. Deploying rules via
+Terraform (`google_firebaserules_ruleset`/`_release`) is two more resources
+for a one-line, essentially-static rules body. Both are one-time manual CLI
+steps instead (next section).
+
+## One-time Firestore setup
+
+Run once, in order, after `terraform apply`:
+
+```
+# 1. API key for the Firestore Web SDK (apikeys.googleapis.com and
+#    firebase.googleapis.com are enabled via terraform/project.tf)
+gcloud services api-keys create \
+  --project=nickm-project-factory \
+  --display-name="Project Factory Dashboard" \
+  --api-target=service=firestore.googleapis.com
+# The create response includes "keyString" directly - no need to look it
+# up separately unless you've lost that output.
+
+# 2. Register the GCP project with Firebase (required before `firebase
+#    deploy` will work - a plain GCP project with Firestore isn't
+#    automatically a "Firebase project" as far as Firebase tooling is
+#    concerned). One-time, not reversible.
+firebase login
+firebase projects:addfirebase nickm-project-factory
+
+# 3. Deploy security rules
+cd firebase && firebase deploy --only firestore:rules
+```
+
+Paste the `keyString` and `terraform output firestore_project_id` into
+`ProjectFactory/dashboard/src/firebaseConfig.ts`.
+
+Then seed some data (see `dashboard/scripts/seed-firestore.mjs` - uses
+`firebase-admin` with your `gcloud` Application Default Credentials, which
+is fine for this even though the apikeys API rejects ADC in step 1; that
+rejection is specific to the apikeys API, not Firestore):
+```
+cd ProjectFactory/dashboard
+npm run seed
+```
+
+**Verifying it's actually live** (not a cached/bundled value): edit a
+project's `description` directly in the GCP/Firebase console, reload the
+dashboard, confirm the change appears.
+
 ## Running it
 
 Two processes, both required:
@@ -56,6 +136,7 @@ Two processes, both required:
 # Terminal 1 - the dashboard's own dev server (hot reload)
 cd ProjectFactory/dashboard
 npm install   # first time only
+npm run seed  # first time only, or whenever you want new sample projects
 npm run dev
 
 # Terminal 2 - the native shell
@@ -97,10 +178,12 @@ before.
 
 In rough order:
 
-1. Replace `mockData.ts` with real data — reading local git history
-   (probably via `simple-git` or shelling out to `git log`) for the history
-   tree, and a real source of "projects Project Factory manages" (likely a
-   local config/registry file it maintains) for the map.
+1. The project map's real data source is done (Firestore, see above). The
+   history tree still needs one — reading local git history (probably via
+   `simple-git` or shelling out to `git log`) — and that's a different
+   mechanism entirely: the WebView can't shell out to `git log` without a
+   native bridge that doesn't exist yet (no `postMessage`/`injectedJavaScript`
+   wiring between the RN shell and the WebView today).
 2. Swap `ProjectMap`'s card grid for React Flow once resource
    *relationships* (not just per-project lists) need visualizing.
 3. Wire the production loading path (above) once there's something worth

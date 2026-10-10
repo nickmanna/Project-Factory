@@ -15,6 +15,10 @@ export function ProjectMap({
   selectedProjectId,
   onSelectProject,
 }: ProjectMapProps) {
+  if (projects.length === 0) {
+    return <p className="empty-state">No projects yet.</p>;
+  }
+
   return (
     <div className="project-map">
       {projects.map((project) => (

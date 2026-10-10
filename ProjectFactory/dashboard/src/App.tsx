@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { ProjectMap } from "./components/ProjectMap";
 import { HistoryTree } from "./components/HistoryTree";
-import { mockProjects, mockCommits } from "./mockData";
+import { useProjects } from "./hooks/useProjects";
+import { mockCommits } from "./mockData";
 
 type View = "map" | "history";
 
 function App() {
+  const { projects, loading, error } = useProjects();
   const [view, setView] = useState<View>("map");
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
-    mockProjects[0]?.id ?? null,
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  const selectedProject = mockProjects.find((p) => p.id === selectedProjectId);
+  const selectedProject =
+    projects.find((p) => p.id === selectedProjectId) ?? projects[0];
+
+  if (loading) return <p className="empty-state">Loading projects…</p>;
+  if (error) {
+    return <p className="empty-state">Couldn't load projects: {error.message}</p>;
+  }
 
   return (
     <div className="app">
@@ -34,8 +40,8 @@ function App() {
       <main>
         {view === "map" && (
           <ProjectMap
-            projects={mockProjects}
-            selectedProjectId={selectedProjectId}
+            projects={projects}
+            selectedProjectId={selectedProject?.id ?? null}
             onSelectProject={(id) => {
               setSelectedProjectId(id);
               setView("history");

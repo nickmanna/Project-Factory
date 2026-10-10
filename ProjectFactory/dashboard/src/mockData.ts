@@ -1,33 +1,12 @@
-import type { Project, Commit } from "./types";
+import type { Commit } from "./types";
 
-// Placeholder data so the UI has something to render. Real data will come
-// from local git repos and the GCP/GitHub APIs once that wiring exists -
-// see docs/Project_Factory_Dashboard_UI.md for the plan.
-export const mockProjects: Project[] = [
-  {
-    id: "project-factory",
-    name: "Project Factory",
-    description: "The scaffolding tool itself (this app).",
-    resources: [
-      { id: "r1", name: "nickmanna/Project-Factory", kind: "repo" },
-      { id: "r2", name: "nickm-project-factory (GCP)", kind: "gcp-project" },
-      { id: "r3", name: "ci-release.yaml", kind: "ci-workflow" },
-      { id: "r4", name: "ci-develop.yaml", kind: "ci-workflow" },
-      { id: "r5", name: "macos-signing-cert", kind: "secret" },
-    ],
-  },
-  {
-    id: "example-web-app",
-    name: "Example Scaffolded App",
-    description: "A Vite web app scaffolded by Project Factory.",
-    resources: [
-      { id: "r6", name: "nickmanna/example-web-app", kind: "repo" },
-      { id: "r7", name: "ci.yaml", kind: "ci-workflow" },
-      { id: "r8", name: "staging.example.dev", kind: "deploy-target" },
-    ],
-  },
-];
-
+// Project data is now real (Firestore, via src/hooks/useProjects.ts) - see
+// docs/Project_Factory_Dashboard_UI.md "Project data: Firestore". Commit
+// history is still placeholder data; it needs to read local git repos,
+// which the WebView can't do without a native bridge that doesn't exist
+// yet - that's still future work. Keys here must match whatever project
+// IDs are seeded into Firestore (see dashboard/scripts/seed-firestore.mjs)
+// for the History tab to show anything for them.
 export const mockCommits: Record<string, Commit[]> = {
   "project-factory": [
     {

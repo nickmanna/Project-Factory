@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Open on purpose: single-user local desktop app, no sensitive data in
+    // Firestore (secrets stay in GCP Secret Manager, never here). See
+    // docs/Project_Factory_Dashboard_UI.md for the reasoning.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

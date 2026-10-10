@@ -10,3 +10,6 @@ terraform/*.tfplan
 
 # Contains real account IDs - see terraform/terraform.tfvars.example
 terraform/terraform.tfvars
+
+# Firebase CLI's local cache
+firebase/.firebase/
